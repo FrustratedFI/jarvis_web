@@ -8,8 +8,8 @@ import google.generativeai as genai
 from PyQt6 import QtWidgets, QtCore, QtGui
 
 # ------------------ CONFIG ------------------
-GENIE_MODEL = "gemini-flash-latest"
-API_KEY = "AIzaSyDfIURQg44G2kPK3GvpVfUsh2GlyCS1TvA"
+GENIE_MODEL = "openrouter/free"
+API_KEY = "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"
 
 genai.configure(api_key=API_KEY)
 
@@ -184,4 +184,5 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     window = ChatWindow()
     window.show()
+
     sys.exit(app.exec())
