@@ -4,21 +4,20 @@ import sqlite3
 from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
-import google.generativeai as genai
 from PyQt6 import QtWidgets, QtCore
 
 # ------------------ CONFIG ------------------
-GENIE_MODEL = "openrouter/free"
 API_KEY = os.getenv("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")
 
 if not API_KEY:
     raise ValueError("OPENROUTER_API_KEY environment variable not set.")
 
-genai.configure(api_key=API_KEY)
+MODEL_NAME = "openrouter/auto"
 
 # ------------------ MEMORY ------------------
 conn = sqlite3.connect("jarvis_memory.db")
 cur = conn.cursor()
+
 cur.execute("""
 CREATE TABLE IF NOT EXISTS memory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +38,9 @@ def memory_store(category: str, key: str, value: str):
 
 def memory_recall(category: str, key: str):
     cur.execute(
-        "SELECT value, created_at FROM memory WHERE category=? AND key LIKE ? ORDER BY created_at DESC",
+        "SELECT value, created_at FROM memory 
+         WHERE category=? AND key LIKE ? 
+         ORDER BY created_at DESC",
         (category, f"%{key}%")
     )
     return cur.fetchall()
@@ -62,12 +63,19 @@ def web_search(query):
         snippet = soup.select_one('div.BNeawe.s3v9rd.AP7Wnd')
         return snippet.text if snippet else "I found no clear answer online."
     except Exception as e:
-        return f"Error during web search: {str(e)}"
+        return f"Web search error: {str(e)}"
 
 # ------------------ AI RESPONSE ------------------
 def get_jarvis_response(user_input, context_text="", conversation_history=None):
     if conversation_history is None:
         conversation_history = []
+
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost",
+        "X-Title": "Jarvis Web"
+    }
 
     messages = []
 
@@ -83,14 +91,24 @@ def get_jarvis_response(user_input, context_text="", conversation_history=None):
 
     messages.append({"role": "user", "content": user_input})
 
+    payload = {
+        "model": MODEL_NAME,
+        "messages": messages
+    }
+
     try:
-        response = genai.chat.create(
-            model=GENIE_MODEL,
-            messages=messages
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
         )
-        return response.last.content[0].text
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+
     except Exception as e:
-        return f"Error communicating with AI: {str(e)}"
+        return f"AI Error: {str(e)}"
 
 # ------------------ WORKER THREAD ------------------
 class Worker(QtCore.QThread):
@@ -153,7 +171,7 @@ class ChatWindow(QtWidgets.QWidget):
 
         self.conversation_history = []
 
-    # ------------------ CHAT DISPLAY ------------------
+    # ------------------ DISPLAY ------------------
     def add_chat_message(self, sender, message):
         color = "#ffffff" if sender == "You" else "#00ff99"
         formatted = message.replace("\n", "<br>")
@@ -164,7 +182,7 @@ class ChatWindow(QtWidgets.QWidget):
             self.chat_area.verticalScrollBar().maximum()
         )
 
-    # ------------------ INPUT HANDLER ------------------
+    # ------------------ INPUT ------------------
     def handle_user_input(self):
         user_text = self.input_line.text().strip()
         if not user_text:
@@ -194,7 +212,7 @@ class ChatWindow(QtWidgets.QWidget):
                 self.add_chat_message("Jarvis", recall_text)
             return
 
-        # STRICT TIME INTENT
+        # TIME COMMANDS
         if lower in ["what time is it", "current time", "date today", "what is the date"]:
             now = datetime.now()
             time_str = now.strftime("%A, %d %B %Y %H:%M:%S")
@@ -211,7 +229,7 @@ class ChatWindow(QtWidgets.QWidget):
             self.worker.start()
             return
 
-        # AI RESPONSE (threaded)
+        # AI RESPONSE
         context_text = get_user_info()
         self.worker = Worker(
             get_jarvis_response,
@@ -219,16 +237,19 @@ class ChatWindow(QtWidgets.QWidget):
             context_text,
             self.conversation_history
         )
-        self.worker.finished.connect(self.handle_ai_response)
+        self.worker.finished.connect(
+            lambda reply: self.handle_ai_response(user_text, reply)
+        )
         self.worker.start()
 
-    def handle_ai_response(self, reply):
-        self.conversation_history.append(f"User: {reply}")
+    def handle_ai_response(self, user_input, reply):
+        self.conversation_history.append(f"User: {user_input}")
         self.conversation_history.append(f"Jarvis: {reply}")
-        memory_store("conversation", "auto", reply)
+        memory_store("conversation", "auto", f"User: {user_input}")
+        memory_store("conversation", "auto", f"Jarvis: {reply}")
         self.add_chat_message("Jarvis", reply)
 
-# ------------------ RUN APP ------------------
+# ------------------ RUN ------------------
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     window = ChatWindow()
