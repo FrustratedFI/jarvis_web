@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberWave WiFi Dashboard</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&amp;family=Share+Tech+Mono&amp;display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    
+    :root {
+      --neon-cyan: #00f5ff;
+      --neon-purple: #bf00ff;
+      --neon-blue: #0066ff;
+      --dark-bg: #0a0a0f;
+      --panel-bg: #12121a;
+    }
+    
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--dark-bg);
+      overflow-x: hidden;
+    }
+    
+    .orbitron { font-family: 'Orbitron', sans-serif; }
+    
+    .cyber-grid {
+      background-image: 
+        linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: gridMove 20s linear infinite;
+    }
+    
+    @keyframes gridMove {
+      0% { background-position: 0 0; }
+      100% { background-position: 50px 50px; }
+    }
+    
+    .noise-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.02;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 245, 255, 0.1) 2px,
+        rgba(0, 245, 255, 0.1) 4px
+      );
+      animation: noise 0.5s steps(10) infinite;
+      z-index: 1000;
+    }
+    
+    @keyframes noise {
+      0%, 100% { transform: translate(0, 0); }
+      10% { transform: translate(-1px, 1px); }
+      20% { transform: translate(1px, -1px); }
+      30% { transform: translate(-1px, -1px); }
+      40% { transform: translate(1px, 1px); }
+      50% { transform: translate(-1px, 0); }
+      60% { transform: translate(1px, 0); }
+      70% { transform: translate(0, 1px); }
+      80% { transform: translate(0, -1px); }
+      90% { transform: translate(1px, 1px); }
+    }
+    
+    .holo-panel {
+      background: linear-gradient(135deg, rgba(18, 18, 26, 0.9) 0%, rgba(18, 18, 26, 0.7) 100%);
+      border: 1px solid rgba(0, 245, 255, 0.2);
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .holo-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.1), transparent);
+      animation: holoShine 3s ease-in-out infinite;
+    }
+    
+    @keyframes holoShine {
+      0% { left: -100%; }
+      50%, 100% { left: 100%; }
+    }
+    
+    .glow-cyan {
+      text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan), 0 0 40px var(--neon-cyan);
+    }
+    
+    .glow-purple {
+      text-shadow: 0 0 10px var(--neon-purple), 0 0 20px var(--neon-purple), 0 0 40px var(--neon-purple);
+    }
+    
+    .glow-blue {
+      text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue), 0 0 40px var(--neon-blue);
+    }
+    
+    .box-glow-cyan {
+      box-shadow: 0 0 20px rgba(0, 245, 255, 0.3), inset 0 0 20px rgba(0, 245, 255, 0.1);
+    }
+    
+    .box-glow-purple {
+      box-shadow: 0 0 20px rgba(191, 0, 255, 0.3), inset 0 0 20px rgba(191, 0, 255, 0.1);
+    }
+    
+    .rssi-display {
+      font-size: clamp(3rem, 10vw, 6rem);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      background: linear-gradient(180deg, #00f5ff 0%, #0066ff 50%, #bf00ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 30px rgba(0, 245, 255, 0.5));
+      animation: rssiPulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes rssiPulse {
+      0%, 100% { filter: drop-shadow(0 0 30px rgba(0, 245, 255, 0.5)); }
+      50% { filter: drop-shadow(0 0 50px rgba(0, 245, 255, 0.8)); }
+    }
+    
+    .waveform-container {
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+    }
+    
+    .wave-bar {
+      width: 4px;
+      background: linear-gradient(180deg, var(--neon-cyan), var(--neon-purple));
+      border-radius: 2px;
+      animation: waveAnim 1.2s ease-in-out infinite;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+    
+    @keyframes waveAnim {
+      0%, 100% { height: 20px; opacity: 0.5; }
+      50% { height: 100px; opacity: 1; }
+    }
+    
+    .signal-bar {
+      background: linear-gradient(180deg, var(--neon-cyan), var(--neon-blue));
+      border-radius: 2px;
+      animation: signalPulse 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes signalPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    
+    .scan-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+      animation: scanMove 2s linear infinite;
+    }
+    
+    @keyframes scanMove {
+      0% { top: 0; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    
+    .hud-corner {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-color: var(--neon-cyan);
+    }
+    
+    .hud-corner.top-left { top: 0; left: 0; border-top: 2px solid; border-left: 2px solid; }
+    .hud-corner.top-right { top: 0; right: 0; border-top: 2px solid; border-right: 2px solid; }
+    .hud-corner.bottom-left { bottom: 0; left: 0; border-bottom: 2px solid; border-left: 2px solid; }
+    .hud-corner.bottom-right { bottom: 0; right: 0; border-bottom: 2px solid; border-right: 2px solid; }
+    
+    .data-stream {
+      position: absolute;
+      font-size: 10px;
+      color: rgba(0, 245, 255, 0.3);
+      writing-mode: vertical-rl;
+      animation: dataFlow 10s linear infinite;
+      white-space: nowrap;
+    }
+    
+    @keyframes dataFlow {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(100%); }
+    }
+    
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      animation: statusBlink 1s ease-in-out infinite;
+      box-shadow: 0 0 20px var(--neon-cyan);
+    }
+    
+    @keyframes statusBlink {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    
+    .network-item {
+      transition: all 0.3s ease;
+      border-left: 2px solid transparent;
+    }
+    
+    .network-item:hover {
+      background: rgba(0, 245, 255, 0.1);
+      border-left-color: var(--neon-cyan);
+    }
+    
+    .network-item.active {
+      background: rgba(0, 245, 255, 0.15);
+      border-left-color: var(--neon-cyan);
+    }
+    
+    .circular-progress {
+      transform: rotate(-90deg);
+    }
+    
+    .circular-progress circle {
+      fill: none;
+      stroke-width: 8;
+      stroke-linecap: round;
+    }
+    
+    .progress-bg { stroke: rgba(0, 245, 255, 0.1); }
+    
+    .progress-value {
+      stroke: url(#progressGradient);
+      stroke-dasharray: 283;
+      stroke-dashoffset: 70;
+      animation: progressAnim 2s ease-in-out infinite alternate;
+      filter: drop-shadow(0 0 10px var(--neon-cyan));
+    }
+    
+    @keyframes progressAnim {
+      0% { stroke-dashoffset: 100; }
+      100% { stroke-dashoffset: 50; }
+    }
+    
+    .hex-pattern {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%2300f5ff' fill-opacity='0.03'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-[#0a0a0f] text-cyan-400 overflow-auto">
+  <div class="noise-overlay"></div>
+  <div class="h-full w-full cyber-grid hex-pattern relative p-4 md:p-6">
+   <div class="data-stream left-2 top-0" style="animation-delay: 0s;">
+    01001110 01000101 01010100
+   </div>
+   <div class="data-stream right-2 top-0" style="animation-delay: -5s;">
+    11010010 10101011 00110101
+   </div>
+   <header class="relative mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+     <div class="flex items-center gap-4">
+      <div class="relative">
+       <svg class="w-12 h-12 text-cyan-400" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" stroke-linecap="round" stroke-linejoin="round" />
+       </svg>
+       <div class="absolute inset-0 blur-xl bg-cyan-400/30 -z-10"></div>
+      </div>
+      <div>
+       <h1 id="main-title" class="orbitron text-2xl md:text-3xl font-bold tracking-wider glow-cyan">CYBERWAVE</h1>
+       <p class="text-xs text-cyan-400/60 tracking-[0.3em] uppercase">Network Interface v2.84</p>
+      </div>
+     </div>
+     <div class="flex items-center gap-3">
+      <div class="status-dot"></div><span id="status-text" class="text-sm uppercase tracking-wider">Connected</span> <span class="text-cyan-400/40">|</span> <span id="current-time" class="orbitron text-lg glow-cyan">00:00:00</span>
+     </div>
+    </div>
+   </header>
+   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+    <div class="lg:col-span-2 holo-panel rounded-lg p-6 box-glow-cyan relative">
+     <div class="scan-line"></div>
+     <div class="hud-corner top-left"></div>
+     <div class="hud-corner top-right"></div>
+     <div class="hud-corner bottom-left"></div>
+     <div class="hud-corner bottom-right"></div>
+     <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="text-center md:text-left">
+       <p class="text-xs uppercase tracking-[0.3em] text-cyan-400/60 mb-2">Signal Strength</p>
+       <div class="rssi-display orbitron" id="rssi-value">
+        -42
+       </div>
+       <p class="text-lg text-cyan-400/80 orbitron">dBm</p>
+       <div class="mt-4 flex items-center gap-2">
+        <span class="text-xs text-purple-400 uppercase tracking-wider">Quality:</span> <span class="text-sm text-cyan-400 glow-cyan orbitron" id="quality-text">EXCELLENT</span>
+       </div>
+      </div>
+      <div class="flex-1 max-w-md">
+       <div class="waveform-container" id="waveform"></div>
+      </div>
+      <div class="relative">
+       <svg class="circular-progress w-32 h-32" viewbox="0 0 100 100">
+        <defs>
+         <lineargradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#00f5ff" />
+          <stop offset="50%" stop-color="#0066ff" />
+          <stop offset="100%" stop-color="#bf00ff" />
+         </lineargradient>
+        </defs> <circle class="progress-bg" cx="50" cy="50" r="45" /> <circle class="progress-value" cx="50" cy="50" r="45" />
+       </svg>
+       <div class="absolute inset-0 flex items-center justify-center">
+        <div class="text-center">
+         <span class="orbitron text-2xl font-bold glow-cyan" id="signal-percent">85</span> <span class="text-xs text-cyan-400/60 block">%</span>
+        </div>
+       </div>
+      </div>
+     </div>
+    </div>
+    <div class="holo-panel rounded-lg p-6 box-glow-purple relative">
+     <div class="hud-corner top-left" style="border-color: #bf00ff;"></div>
+     <div class="hud-corner top-right" style="border-color: #bf00ff;"></div>
+     <div class="hud-corner bottom-left" style="border-color: #bf00ff;"></div>
+     <div class="hud-corner bottom-right" style="border-color: #bf00ff;"></div>
+     <h2 class="orbitron text-sm uppercase tracking-[0.2em] text-purple-400 mb-4 glow-purple">Active Network</h2>
+     <div class="space-y-4">
+      <div>
+       <p class="text-xs text-cyan-400/50 uppercase tracking-wider">SSID</p>
+       <p id="network-name" class="orbitron text-xl text-cyan-400 truncate">NEXUS_PRIME_5G</p>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+       <div>
+        <p class="text-xs text-cyan-400/50 uppercase tracking-wider">Channel</p>
+        <p class="orbitron text-lg" id="channel-value">36</p>
+       </div>
+       <div>
+        <p class="text-xs text-cyan-400/50 uppercase tracking-wider">Frequency</p>
+        <p class="orbitron text-lg" id="freq-value">5.18 GHz</p>
+       </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+       <div>
+        <p class="text-xs text-cyan-400/50 uppercase tracking-wider">Security</p>
+        <p class="text-sm text-green-400">WPA3</p>
+       </div>
+       <div>
+        <p class="text-xs text-cyan-400/50 uppercase tracking-wider">Band</p>
+        <p class="text-sm">5 GHz</p>
+       </div>
+      </div>
+      <div>
+       <p class="text-xs text-cyan-400/50 uppercase tracking-wider mb-2">Link Speed</p>
+       <div class="flex items-end gap-2">
+        <span class="orbitron text-3xl glow-cyan" id="speed-value">866</span> <span class="text-sm text-cyan-400/60 pb-1">Mbps</span>
+       </div>
+      </div>
+     </div>
+    </div>
+    <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4">
+     <div class="holo-panel rounded-lg p-4 text-center relative overflow-hidden group">
+      <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <p class="text-xs text-cyan-400/50 uppercase tracking-wider mb-1">TX Rate</p>
+      <p class="orbitron text-2xl md:text-3xl glow-cyan" id="tx-rate">234.5</p>
+      <p class="text-xs text-cyan-400/60">Mbps</p>
+     </div>
+     <div class="holo-panel rounded-lg p-4 text-center relative overflow-hidden group">
+      <div class="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <p class="text-xs text-cyan-400/50 uppercase tracking-wider mb-1">RX Rate</p>
+      <p class="orbitron text-2xl md:text-3xl glow-purple" id="rx-rate">312.8</p>
+      <p class="text-xs text-cyan-400/60">Mbps</p>
+     </div>
+     <div class="holo-panel rounded-lg p-4 text-center relative overflow-hidden group">
+      <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <p class="text-xs text-cyan-400/50 uppercase tracking-wider mb-1">Packets</p>
+      <p class="orbitron text-2xl md:text-3xl glow-blue" id="packets">1.2M</p>
+      <p class="text-xs text-cyan-400/60">Total</p>
+     </div>
+     <div class="holo-panel rounded-lg p-4 text-center relative overflow-hidden group">
+      <div class="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <p class="text-xs text-cyan-400/50 uppercase tracking-wider mb-1">Latency</p>
+      <p class="orbitron text-2xl md:text-3xl text-green-400" style="text-shadow: 0 0 20px #22c55e;" id="latency">12</p>
+      <p class="text-xs text-cyan-400/60">ms</p>
+     </div>
+    </div>
+    <div class="lg:col-span-2 holo-panel rounded-lg p-6 relative">
+     <div class="scan-line" style="animation-duration: 3s;"></div>
+     <h2 class="orbitron text-sm uppercase tracking-[0.2em] text-cyan-400 mb-4 flex items-center gap-2"><span class="glow-cyan">Available Networks</span> <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span></h2>
+     <div class="space-y-2 max-h-64 overflow-y-auto" id="network-list"></div>
+    </div>
+    <div class="holo-panel rounded-lg p-6 relative">
+     <h2 class="orbitron text-sm uppercase tracking-[0.2em] text-purple-400 mb-4 glow-purple">System Metrics</h2>
+     <div class="space-y-4">
+      <div>
+       <div class="flex justify-between text-xs mb-1">
+        <span class="text-cyan-400/60">CPU Usage</span> <span class="orbitron" id="cpu-usage">23%</span>
+       </div>
+       <div class="h-2 bg-cyan-900/30 rounded-full overflow-hidden">
+        <div class="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all duration-500" id="cpu-bar" style="width: 23%;"></div>
+       </div>
+      </div>
+      <div>
+       <div class="flex justify-between text-xs mb-1">
+        <span class="text-cyan-400/60">Memory</span> <span class="orbitron" id="mem-usage">67%</span>
+       </div>
+       <div class="h-2 bg-purple-900/30 rounded-full overflow-hidden">
+        <div class="h-full bg-gradient-to-r from-purple-400 to-pink-500 rounded-full transition-all duration-500" id="mem-bar" style="width: 67%;"></div>
+       </div>
+      </div>
+      <div>
+       <div class="flex justify-between text-xs mb-1">
+        <span class="text-cyan-400/60">Network Load</span> <span class="orbitron" id="net-usage">45%</span>
+       </div>
+       <div class="h-2 bg-blue-900/30 rounded-full overflow-hidden">
+        <div class="h-full bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full transition-all duration-500" id="net-bar" style="width: 45%;"></div>
+       </div>
+      </div>
+      <div class="pt-4 border-t border-cyan-400/10">
+       <div class="grid grid-cols-2 gap-3 text-xs">
+        <div>
+         <p class="text-cyan-400/50">MAC Address</p>
+         <p class="orbitron text-[10px]">4A:3B:2C:1D:5E:6F</p>
+        </div>
+        <div>
+         <p class="text-cyan-400/50">IP Address</p>
+         <p class="orbitron text-[10px]">192.168.1.42</p>
+        </div>
+        <div>
+         <p class="text-cyan-400/50">Gateway</p>
+         <p class="orbitron text-[10px]">192.168.1.1</p>
+        </div>
+        <div>
+         <p class="text-cyan-400/50">DNS</p>
+         <p class="orbitron text-[10px]">1.1.1.1</p>
+        </div>
+       </div>
+      </div>
+     </div>
+    </div>
+   </div>
+   <footer class="mt-6 text-center text-xs text-cyan-400/30 tracking-wider">
+    <p>CYBERWAVE NETWORK INTERFACE // SYSTEM v2.84.1 // ALL SYSTEMS NOMINAL</p>
+   </footer>
+  </div>
+  <script>
+    const defaultConfig = {
+      network_name: 'NEXUS_PRIME_5G',
+      status_text: 'Connected',
+      background_color: '#0a0a0f',
+      panel_color: '#12121a',
+      primary_color: '#00f5ff',
+      secondary_color: '#bf00ff',
+      text_color: '#00f5ff',
+      font_family: 'Orbitron',
+      font_size: 16
+    };
+
+    const networks = [
+      { name: 'NEXUS_PRIME_5G', signal: -42, security: 'WPA3', band: '5G', active: true },
+      { name: 'DARKNET_SECURE', signal: -58, security: 'WPA2', band: '5G', active: false },
+      { name: 'CYBORG_MESH', signal: -65, security: 'WPA3', band: '2.4G', active: false },
+      { name: 'GHOST_PROTOCOL', signal: -71, security: 'WPA2', band: '5G', active: false },
+      { name: 'MATRIX_NODE_7', signal: -78, security: 'OPEN', band: '2.4G', active: false },
+      { name: 'QUANTUM_LINK', signal: -82, security: 'WPA3', band: '5G', active: false }
+    ];
+
+    function generateWaveform() {
+      const container = document.getElementById('waveform');
+      container.innerHTML = '';
+      for (let i = 0; i < 40; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'wave-bar';
+        bar.style.animationDelay = `${i * 0.05}s`;
+        container.appendChild(bar);
+      }
+    }
+
+    function generateNetworkList() {
+      const container = document.getElementById('network-list');
+      container.innerHTML = '';
+      
+      networks.forEach(network => {
+        const signalPercent = Math.min(100, Math.max(0, (network.signal + 100) * 1.5));
+        const signalBars = Math.ceil(signalPercent / 25);
+        
+        const item = document.createElement('div');
+        item.className = `network-item p-3 rounded cursor-pointer ${network.active ? 'active' : ''}`;
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="flex items-end gap-0.5 h-4">
+                ${Array.from({length: 4}, (_, i) => `
+                  <div class="signal-bar w-1 ${i < signalBars ? 'bg-gradient-to-t from-cyan-400 to-purple-400' : 'bg-cyan-900/30'}" 
+                       style="height: ${(i + 1) * 4}px; animation-delay: ${i * 0.1}s;"></div>
+                `).join('')}
+              </div>
+              <div>
+                <p class="text-sm orbitron ${network.active ? 'text-cyan-400 glow-cyan' : 'text-cyan-400/70'}">${network.name}</p>
+                <p class="text-[10px] text-cyan-400/40">${network.security} • ${network.band}</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="orbitron text-sm ${network.signal > -60 ? 'text-green-400' : network.signal > -75 ? 'text-yellow-400' : 'text-red-400'}">${network.signal}</p>
+              <p class="text-[10px] text-cyan-400/40">dBm</p>
+            </div>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function updateTime() {
+      const now = new Date();
+      const time = now.toTimeString().split(' ')[0];
+      document.getElementById('current-time').textContent = time;
+    }
+
+    // Live RSSI update from ESP32
+    async function updateRSSI() {
+      try {
+        const res = await fetch('http://192.168.0.111/rssi');
+        const rssi = parseInt(await res.text());
+
+        document.getElementById('rssi-value').textContent = rssi;
+        
+        const signalPercent = Math.min(100, Math.max(0, (rssi + 100) * 1.2));
+        document.getElementById('signal-percent').textContent = Math.round(signalPercent);
+
+        const qualityEl = document.getElementById('quality-text');
+        if (rssi > -50) {
+          qualityEl.textContent = 'EXCELLENT';
+          qualityEl.className = 'text-sm text-green-400 orbitron';
+        } else if (rssi > -60) {
+          qualityEl.textContent = 'GOOD';
+          qualityEl.className = 'text-sm text-cyan-400 glow-cyan orbitron';
+        } else if (rssi > -70) {
+          qualityEl.textContent = 'FAIR';
+          qualityEl.className = 'text-sm text-yellow-400 orbitron';
+        } else {
+          qualityEl.textContent = 'WEAK';
+          qualityEl.className = 'text-sm text-red-400 orbitron';
+        }
+      } catch(e) {
+        console.error('Failed to fetch RSSI:', e);
+      }
+    }
+
+    function simulateLiveData() {
+      document.getElementById('tx-rate').textContent = (200 + Math.random() * 100).toFixed(1);
+      document.getElementById('rx-rate').textContent = (250 + Math.random() * 150).toFixed(1);
+      document.getElementById('latency').textContent = Math.floor(8 + Math.random() * 15);
+      
+      const cpuUsage = Math.floor(15 + Math.random() * 30);
+      const memUsage = Math.floor(60 + Math.random() * 20);
+      const netUsage = Math.floor(30 + Math.random() * 40);
+      
+      document.getElementById('cpu-usage').textContent = cpuUsage + '%';
+      document.getElementById('cpu-bar').style.width = cpuUsage + '%';
+      document.getElementById('mem-usage').textContent = memUsage + '%';
+      document.getElementById('mem-bar').style.width = memUsage + '%';
+      document.getElementById('net-usage').textContent = netUsage + '%';
+      document.getElementById('net-bar').style.width = netUsage + '%';
+    }
+
+    async function onConfigChange(config) {
+      const networkName = config.network_name || defaultConfig.network_name;
+      const statusText = config.status_text || defaultConfig.status_text;
+      const fontFamily = config.font_family || defaultConfig.font_family;
+      const fontSize = config.font_size || defaultConfig.font_size;
+      const primaryColor = config.primary_color || defaultConfig.primary_color;
+      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
+      const textColor = config.text_color || defaultConfig.text_color;
+      const backgroundColor = config.background_color || defaultConfig.background_color;
+      const panelColor = config.panel_color || defaultConfig.panel_color;
+      
+      document.getElementById('network-name').textContent = networkName;
+      document.getElementById('status-text').textContent = statusText;
+      
+      const fontStack = `${fontFamily}, 'Orbitron', sans-serif`;
+      document.querySelectorAll('.orbitron').forEach(el => {
+        el.style.fontFamily = fontStack;
+      });
+      
+      document.documentElement.style.fontSize = fontSize + 'px';
+      document.documentElement.style.setProperty('--neon-cyan', primaryColor);
+      document.documentElement.style.setProperty('--neon-purple', secondaryColor);
+      document.documentElement.style.setProperty('--dark-bg', backgroundColor);
+      document.documentElement.style.setProperty('--panel-bg', panelColor);
+      
+      document.body.style.backgroundColor = backgroundColor;
+      
+      document.querySelectorAll('.holo-panel').forEach(el => {
+        el.style.background = `linear-gradient(135deg, ${panelColor}e6 0%, ${panelColor}b3 100%)`;
+      });
+      
+      document.querySelectorAll('.text-cyan-400').forEach(el => {
+        el.style.color = textColor;
+      });
+    }
+
+    function mapToCapabilities(config) {
+      return {
+        recolorables: [
+          {
+            get: () => config.background_color || defaultConfig.background_color,
+            set: (value) => {
+              config.background_color = value;
+              if (window.elementSdk) window.elementSdk.setConfig({ background_color: value });
+            }
+          },
+          {
+            get: () => config.panel_color || defaultConfig.panel_color,
+            set: (value) => {
+              config.panel_color = value;
+              if (window.elementSdk) window.elementSdk.setConfig({ panel_color: value });
+            }
+          },
+          {
+            get: () => config.text_color || defaultConfig.text_color,
+            set: (value) => {
+              config.text_color = value;
+              if (window.elementSdk) window.elementSdk.setConfig({ text_color: value });
+            }
+          },
+          {
+            get: () => config.primary_color || defaultConfig.primary_color,
+            set: (value) => {
+              config.primary_color = value;
+              if (window.elementSdk) window.elementSdk.setConfig({ primary_color: value });
+            }
+          },
+          {
+            get: () => config.secondary_color || defaultConfig.secondary_color,
+            set: (value) => {
+              config.secondary_color = value;
+              if (window.elementSdk) window.elementSdk.setConfig({ secondary_color: value });
+            }
+          }
+        ],
+        borderables: [],
+        fontEditable: {
+          get: () => config.font_family || defaultConfig.font_family,
+          set: (value) => {
+            config.font_family = value;
+            if (window.elementSdk) window.elementSdk.setConfig({ font_family: value });
+          }
+        },
+        fontSizeable: {
+          get: () => config.font_size || defaultConfig.font_size,
+          set: (value) => {
+            config.font_size = value;
+            if (window.elementSdk) window.elementSdk.setConfig({ font_size: value });
+          }
+        }
+      };
+    }
+
+    function mapToEditPanelValues(config) {
+      return new Map([
+        ['network_name', config.network_name || defaultConfig.network_name],
+        ['status_text', config.status_text || defaultConfig.status_text]
+      ]);
+    }
+
+    function init() {
+      generateWaveform();
+      generateNetworkList();
+      updateTime();
+      
+      setInterval(updateTime, 1000);
+      setInterval(simulateLiveData, 2000);
+      setInterval(updateRSSI, 2000);
+      updateRSSI();
+      
+      if (window.elementSdk) {
+        window.elementSdk.init({
+          defaultConfig,
+          onConfigChange,
+          mapToCapabilities,
+          mapToEditPanelValues
+        });
+      }
+    }
+
+    init();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d1e7b52f6dd25b1',t:'MTc3MTc2MzI5MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
