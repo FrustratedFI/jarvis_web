@@ -460,247 +460,193 @@
    </footer>
   </div>
   <script>
-    const defaultConfig = {
-      network_name: 'NEXUS_PRIME_5G',
-      status_text: 'Connected',
-      background_color: '#0a0a0f',
-      panel_color: '#12121a',
-      primary_color: '#00f5ff',
-      secondary_color: '#bf00ff',
-      text_color: '#00f5ff',
-      font_family: 'Orbitron',
-      font_size: 16
-    };
+const defaultConfig = {
+  network_name: 'NEXUS_PRIME_5G',
+  status_text: 'Connected',
+  background_color: '#0a0a0f',
+  panel_color: '#12121a',
+  primary_color: '#00f5ff',
+  secondary_color: '#bf00ff',
+  text_color: '#00f5ff',
+  font_family: 'Orbitron',
+  font_size: 16
+};
 
-    const networks = [
-      /*{ name: 'NEXUS_PR', signal: -42, security: 'WPA3', band: '5G', active: true },
-      { name: 'DARKNET_SECURE', signal: -58, security: 'WPA2', band: '5G', active: false },
-      { name: 'CYBORG_MESH', signal: -65, security: 'WPA3', band: '2.4G', active: false },
-      { name: 'GHOST_PROTOCOL', signal: -71, security: 'WPA2', band: '5G', active: false },
-      { name: 'MATRIX_NODE_7', signal: -78, security: 'OPEN', band: '2.4G', active: false },
-      { name: 'QUANTUM_LINK', signal: -82, security: 'WPA3', band: '5G', active: false }*/
-    ];
+// Fetch networks from ESP32
+async function fetchAvailableNetworks() {
+  try {
+    const res = await fetch('http://192.168.0.111/scan');
+    const networks = await res.json();
 
-    function generateWaveform() {
-      const container = document.getElementById('waveform');
-      container.innerHTML = '';
-      for (let i = 0; i < 40; i++) {
-        const bar = document.createElement('div');
-        bar.className = 'wave-bar';
-        bar.style.animationDelay = `${i * 0.05}s`;
-        container.appendChild(bar);
-      }
-    }
+    const container = document.getElementById('network-list');
+    container.innerHTML = '';
 
-    function generateNetworkList() {
-      const container = document.getElementById('network-list');
-      container.innerHTML = '';
-      
-      networks.forEach(network => {
-        const signalPercent = Math.min(100, Math.max(0, (network.signal + 100) * 1.5));
-        const signalBars = Math.ceil(signalPercent / 25);
-        
-        const item = document.createElement('div');
-        item.className = `network-item p-3 rounded cursor-pointer ${network.active ? 'active' : ''}`;
-        item.innerHTML = `
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="flex items-end gap-0.5 h-4">
-                ${Array.from({length: 4}, (_, i) => `
-                  <div class="signal-bar w-1 ${i < signalBars ? 'bg-gradient-to-t from-cyan-400 to-purple-400' : 'bg-cyan-900/30'}" 
-                       style="height: ${(i + 1) * 4}px; animation-delay: ${i * 0.1}s;"></div>
-                `).join('')}
-              </div>
-              <div>
-                <p class="text-sm orbitron ${network.active ? 'text-cyan-400 glow-cyan' : 'text-cyan-400/70'}">${network.name}</p>
-                <p class="text-[10px] text-cyan-400/40">${network.security} • ${network.band}</p>
-              </div>
+    networks.forEach(network => {
+      const signalPercent = Math.min(100, Math.max(0, (network.rssi + 100) * 1.2));
+      const signalBars = Math.ceil(signalPercent / 25);
+
+      const item = document.createElement('div');
+      item.className = `network-item p-3 rounded cursor-pointer ${network.active ? 'active' : ''}`;
+      item.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="flex items-end gap-0.5 h-4">
+              ${Array.from({ length: 4 }, (_, i) => `
+                <div class="signal-bar w-1 ${i < signalBars ? 'bg-gradient-to-t from-cyan-400 to-purple-400' : 'bg-cyan-900/30'}" 
+                     style="height: ${(i + 1) * 4}px; animation-delay: ${i * 0.1}s;"></div>
+              `).join('')}
             </div>
-            <div class="text-right">
-              <p class="orbitron text-sm ${network.signal > -60 ? 'text-green-400' : network.signal > -75 ? 'text-yellow-400' : 'text-red-400'}">${network.signal}</p>
-              <p class="text-[10px] text-cyan-400/40">dBm</p>
+            <div>
+              <p class="text-sm orbitron ${network.active ? 'text-cyan-400 glow-cyan' : 'text-cyan-400/70'}">${network.ssid}</p>
+              <p class="text-[10px] text-cyan-400/40">${network.security} • ${network.band}</p>
             </div>
           </div>
-        `;
-        container.appendChild(item);
-      });
+          <div class="text-right">
+            <p class="orbitron text-sm ${network.rssi > -60 ? 'text-green-400' : network.rssi > -75 ? 'text-yellow-400' : 'text-red-400'}">${network.rssi}</p>
+            <p class="text-[10px] text-cyan-400/40">dBm</p>
+          </div>
+        </div>
+      `;
+      container.appendChild(item);
+    });
+  } catch (e) {
+    console.error("Failed to fetch networks:", e);
+  }
+}
+
+// Generate waveform bars
+function generateWaveform() {
+  const container = document.getElementById('waveform');
+  container.innerHTML = '';
+  for (let i = 0; i < 40; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'wave-bar';
+    bar.style.animationDelay = `${i * 0.05}s`;
+    container.appendChild(bar);
+  }
+}
+
+// Update time
+function updateTime() {
+  const now = new Date();
+  const time = now.toTimeString().split(' ')[0];
+  document.getElementById('current-time').textContent = time;
+}
+
+// Fetch live RSSI
+async function updateRSSI() {
+  try {
+    const res = await fetch('http://192.168.0.111/rssi');
+    const rssi = parseInt(await res.text());
+
+    document.getElementById('rssi-value').textContent = rssi;
+
+    const signalPercent = Math.min(100, Math.max(0, (rssi + 100) * 1.2));
+    document.getElementById('signal-percent').textContent = Math.round(signalPercent);
+
+    const qualityEl = document.getElementById('quality-text');
+    if (rssi > -50) {
+      qualityEl.textContent = 'EXCELLENT';
+      qualityEl.className = 'text-sm text-green-400 orbitron';
+    } else if (rssi > -60) {
+      qualityEl.textContent = 'GOOD';
+      qualityEl.className = 'text-sm text-cyan-400 glow-cyan orbitron';
+    } else if (rssi > -70) {
+      qualityEl.textContent = 'FAIR';
+      qualityEl.className = 'text-sm text-yellow-400 orbitron';
+    } else {
+      qualityEl.textContent = 'WEAK';
+      qualityEl.className = 'text-sm text-red-400 orbitron';
     }
+  } catch (e) {
+    console.error('Failed to fetch RSSI:', e);
+  }
+}
 
-    function updateTime() {
-      const now = new Date();
-      const time = now.toTimeString().split(' ')[0];
-      document.getElementById('current-time').textContent = time;
-    }
+// Simulate CPU / Network stats
+function simulateLiveData() {
+  const txRate = (200 + Math.random() * 100).toFixed(1);
+  const rxRate = (250 + Math.random() * 150).toFixed(1);
+  const latency = Math.floor(8 + Math.random() * 15);
 
-    // Live RSSI update from ESP32
-    async function updateRSSI() {
-      try {
-        const res = await fetch('http://192.168.0.111/rssi');
-        const rssi = parseInt(await res.text());
+  document.getElementById('tx-rate').textContent = txRate;
+  document.getElementById('rx-rate').textContent = rxRate;
+  document.getElementById('latency').textContent = latency;
 
-        document.getElementById('rssi-value').textContent = rssi;
-        
-        const signalPercent = Math.min(100, Math.max(0, (rssi + 100) * 1.2));
-        document.getElementById('signal-percent').textContent = Math.round(signalPercent);
+  const cpuUsage = Math.floor(15 + Math.random() * 30);
+  const memUsage = Math.floor(60 + Math.random() * 20);
+  const netUsage = Math.floor(30 + Math.random() * 40);
 
-        const qualityEl = document.getElementById('quality-text');
-        if (rssi > -50) {
-          qualityEl.textContent = 'EXCELLENT';
-          qualityEl.className = 'text-sm text-green-400 orbitron';
-        } else if (rssi > -60) {
-          qualityEl.textContent = 'GOOD';
-          qualityEl.className = 'text-sm text-cyan-400 glow-cyan orbitron';
-        } else if (rssi > -70) {
-          qualityEl.textContent = 'FAIR';
-          qualityEl.className = 'text-sm text-yellow-400 orbitron';
-        } else {
-          qualityEl.textContent = 'WEAK';
-          qualityEl.className = 'text-sm text-red-400 orbitron';
-        }
-      } catch(e) {
-        console.error('Failed to fetch RSSI:', e);
-      }
-    }
+  document.getElementById('cpu-usage').textContent = cpuUsage + '%';
+  document.getElementById('cpu-bar').style.width = cpuUsage + '%';
+  document.getElementById('mem-usage').textContent = memUsage + '%';
+  document.getElementById('mem-bar').style.width = memUsage + '%';
+  document.getElementById('net-usage').textContent = netUsage + '%';
+  document.getElementById('net-bar').style.width = netUsage + '%';
+}
 
-    function simulateLiveData() {
-      document.getElementById('tx-rate').textContent = (200 + Math.random() * 100).toFixed(1);
-      document.getElementById('rx-rate').textContent = (250 + Math.random() * 150).toFixed(1);
-      document.getElementById('latency').textContent = Math.floor(8 + Math.random() * 15);
-      
-      const cpuUsage = Math.floor(15 + Math.random() * 30);
-      const memUsage = Math.floor(60 + Math.random() * 20);
-      const netUsage = Math.floor(30 + Math.random() * 40);
-      
-      document.getElementById('cpu-usage').textContent = cpuUsage + '%';
-      document.getElementById('cpu-bar').style.width = cpuUsage + '%';
-      document.getElementById('mem-usage').textContent = memUsage + '%';
-      document.getElementById('mem-bar').style.width = memUsage + '%';
-      document.getElementById('net-usage').textContent = netUsage + '%';
-      document.getElementById('net-bar').style.width = netUsage + '%';
-    }
+// Apply config changes dynamically
+async function onConfigChange(config) {
+  const cfg = { ...defaultConfig, ...config };
+  document.getElementById('network-name').textContent = cfg.network_name;
+  document.getElementById('status-text').textContent = cfg.status_text;
 
-    async function onConfigChange(config) {
-      const networkName = config.network_name || defaultConfig.network_name;
-      const statusText = config.status_text || defaultConfig.status_text;
-      const fontFamily = config.font_family || defaultConfig.font_family;
-      const fontSize = config.font_size || defaultConfig.font_size;
-      const primaryColor = config.primary_color || defaultConfig.primary_color;
-      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
-      const textColor = config.text_color || defaultConfig.text_color;
-      const backgroundColor = config.background_color || defaultConfig.background_color;
-      const panelColor = config.panel_color || defaultConfig.panel_color;
-      
-      document.getElementById('network-name').textContent = networkName;
-      document.getElementById('status-text').textContent = statusText;
-      
-      const fontStack = `${fontFamily}, 'Orbitron', sans-serif`;
-      document.querySelectorAll('.orbitron').forEach(el => {
-        el.style.fontFamily = fontStack;
-      });
-      
-      document.documentElement.style.fontSize = fontSize + 'px';
-      document.documentElement.style.setProperty('--neon-cyan', primaryColor);
-      document.documentElement.style.setProperty('--neon-purple', secondaryColor);
-      document.documentElement.style.setProperty('--dark-bg', backgroundColor);
-      document.documentElement.style.setProperty('--panel-bg', panelColor);
-      
-      document.body.style.backgroundColor = backgroundColor;
-      
-      document.querySelectorAll('.holo-panel').forEach(el => {
-        el.style.background = `linear-gradient(135deg, ${panelColor}e6 0%, ${panelColor}b3 100%)`;
-      });
-      
-      document.querySelectorAll('.text-cyan-400').forEach(el => {
-        el.style.color = textColor;
-      });
-    }
+  const fontStack = `${cfg.font_family}, 'Orbitron', sans-serif`;
+  document.querySelectorAll('.orbitron').forEach(el => el.style.fontFamily = fontStack);
 
-    function mapToCapabilities(config) {
-      return {
+  document.documentElement.style.fontSize = cfg.font_size + 'px';
+  document.documentElement.style.setProperty('--neon-cyan', cfg.primary_color);
+  document.documentElement.style.setProperty('--neon-purple', cfg.secondary_color);
+  document.documentElement.style.setProperty('--dark-bg', cfg.background_color);
+  document.documentElement.style.setProperty('--panel-bg', cfg.panel_color);
+  document.body.style.backgroundColor = cfg.background_color;
+
+  document.querySelectorAll('.holo-panel').forEach(el => {
+    el.style.background = `linear-gradient(135deg, ${cfg.panel_color}e6 0%, ${cfg.panel_color}b3 100%)`;
+  });
+
+  document.querySelectorAll('.text-cyan-400').forEach(el => el.style.color = cfg.text_color);
+}
+
+// Initialize everything
+function init() {
+  generateWaveform();
+  fetchAvailableNetworks();
+  updateTime();
+  simulateLiveData();
+  updateRSSI();
+
+  setInterval(updateTime, 1000);
+  setInterval(simulateLiveData, 2000);
+  setInterval(updateRSSI, 2000);
+
+  if (window.elementSdk) {
+    window.elementSdk.init({
+      defaultConfig,
+      onConfigChange,
+      mapToCapabilities: config => ({
         recolorables: [
-          {
-            get: () => config.background_color || defaultConfig.background_color,
-            set: (value) => {
-              config.background_color = value;
-              if (window.elementSdk) window.elementSdk.setConfig({ background_color: value });
-            }
-          },
-          {
-            get: () => config.panel_color || defaultConfig.panel_color,
-            set: (value) => {
-              config.panel_color = value;
-              if (window.elementSdk) window.elementSdk.setConfig({ panel_color: value });
-            }
-          },
-          {
-            get: () => config.text_color || defaultConfig.text_color,
-            set: (value) => {
-              config.text_color = value;
-              if (window.elementSdk) window.elementSdk.setConfig({ text_color: value });
-            }
-          },
-          {
-            get: () => config.primary_color || defaultConfig.primary_color,
-            set: (value) => {
-              config.primary_color = value;
-              if (window.elementSdk) window.elementSdk.setConfig({ primary_color: value });
-            }
-          },
-          {
-            get: () => config.secondary_color || defaultConfig.secondary_color,
-            set: (value) => {
-              config.secondary_color = value;
-              if (window.elementSdk) window.elementSdk.setConfig({ secondary_color: value });
-            }
-          }
+          { get: () => config.background_color, set: v => { config.background_color = v; window.elementSdk?.setConfig({ background_color: v }); } },
+          { get: () => config.panel_color, set: v => { config.panel_color = v; window.elementSdk?.setConfig({ panel_color: v }); } },
+          { get: () => config.text_color, set: v => { config.text_color = v; window.elementSdk?.setConfig({ text_color: v }); } },
+          { get: () => config.primary_color, set: v => { config.primary_color = v; window.elementSdk?.setConfig({ primary_color: v }); } },
+          { get: () => config.secondary_color, set: v => { config.secondary_color = v; window.elementSdk?.setConfig({ secondary_color: v }); } }
         ],
         borderables: [],
-        fontEditable: {
-          get: () => config.font_family || defaultConfig.font_family,
-          set: (value) => {
-            config.font_family = value;
-            if (window.elementSdk) window.elementSdk.setConfig({ font_family: value });
-          }
-        },
-        fontSizeable: {
-          get: () => config.font_size || defaultConfig.font_size,
-          set: (value) => {
-            config.font_size = value;
-            if (window.elementSdk) window.elementSdk.setConfig({ font_size: value });
-          }
-        }
-      };
-    }
+        fontEditable: { get: () => config.font_family, set: v => { config.font_family = v; window.elementSdk?.setConfig({ font_family: v }); } },
+        fontSizeable: { get: () => config.font_size, set: v => { config.font_size = v; window.elementSdk?.setConfig({ font_size: v }); } }
+      }),
+      mapToEditPanelValues: config => new Map([
+        ['network_name', config.network_name],
+        ['status_text', config.status_text]
+      ])
+    });
+  }
+}
 
-    function mapToEditPanelValues(config) {
-      return new Map([
-        ['network_name', config.network_name || defaultConfig.network_name],
-        ['status_text', config.status_text || defaultConfig.status_text]
-      ]);
-    }
-
-    function init() {
-      generateWaveform();
-      generateNetworkList();
-      updateTime();
-      
-      setInterval(updateTime, 1000);
-      setInterval(simulateLiveData, 2000);
-      setInterval(updateRSSI, 2000);
-      updateRSSI();
-      
-      if (window.elementSdk) {
-        window.elementSdk.init({
-          defaultConfig,
-          onConfigChange,
-          mapToCapabilities,
-          mapToEditPanelValues
-        });
-      }
-    }
-
-    init();
-  </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d1e7b52f6dd25b1',t:'MTc3MTc2MzI5MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+init();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d1e7b52f6dd25b1',t:'MTc3MTc2MzI5MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 
 </html>
+
